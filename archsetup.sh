@@ -1,8 +1,38 @@
 #!/bin/bash
-
+#
+# ##############
+# !!! WARNING !!!
+#   DO NOT run this on any system whose data you care about.  It's highly destructive.
+#   Also note, it might have some bugs still.
+# ##############
+#
 # This deploys Arch linux using a sensible disk layout for laptops and desktop workstations.
+#
+# Any persistent disks that you want to preserve should be disconnected from the host during installation.
+# This script will wipe all non-hotpluggable storage, set up encryption (if configured) and LVM, and prepare a BTRFS host filesystem.
+#
+# Usage:
+#   1.  Download this script to /tmp/archsetup.sh
+#   2.  Execute: `bash archsetup.sh <options>` as described below
+#   3.  Customize the system as you need... possibly requires `arch-chroot /mnt`
+#   4.  Reboot
+#
+#
+# bash archsetup.sh <options>
+#
+#   -N <full username>  e.g. "Bill Gates"
+#   -U <username>       e.g. "billgates"
+#   -H <hostname>       e.g. "billpc"
+#   -E                  activate encryption
+#   -K <passphrase>     e.g. "YourSuperSecretEncryptionKey"
+#   -P <percentexpr>    e.g. "90%FREE" or "40%VG" -- as per `lvcreate` options
+#   -L <language>       e.g. "en_US.UTF-8"
+#   -R <regiontz>       e.g. "America/Los_Angeles"
+
 
 set -euf -o pipefail
+
+BOOT_EFI_SIZE="1024MiB"
 
 get_swap_gb () {
     cat /proc/meminfo | grep MemTotal | awk '{ print $2, $3 }' | while read count unit; do
@@ -52,11 +82,11 @@ do_disk_setup () {
 
         # make disk partitions
         sgdisk --clear \
-            --new=1:0:+550MiB --typecode=1:ef00 --change-name=1:EFI${count} \
-            --new=2:0:0       --typecode=2:8300 --change-name=2:system${count} \
+            --new=1:0:+${BOOT_EFI_SIZE} --typecode=1:ef00 --change-name=1:EFI${count} \
+            --new=2:0:0                 --typecode=2:8300 --change-name=2:system${count} \
             ${NAME} # from the params above
 
-        DEVICES+=(/dev/disk/by-partlabel/EFI${count})
+        EFI_DEV+=(/dev/disk/by-label/EFI${count})
 
         if [[ 1 -eq ${DISC_ZERO} ]]; then
             ZEROES=$(( ZEROES + 1 ))
@@ -68,14 +98,23 @@ do_disk_setup () {
 
         case ${2:-no} in
             yes) # setup encryption
-                cryptsetup luksFormat -q  /dev/disk/by-partlabel/system${count} /tmp/luks.key
-                test -f "${3}" &&  cryptsetup luksAddKey -q --new-keyfile "${3}" -d /tmp/luks.key /dev/disk/by-partlabel/system${count}
-                cryptsetup open  -d /tmp/luks.key /dev/disk/by-partlabel/system${count} system${count}
+                # Create the encryption volume
+                cryptsetup luksFormat -q  /dev/disk/by-label/system${count} /tmp/luks.key
+
+                # If provided, also register the user's human-friendly key
+                test -f "${3}" &&  cryptsetup luksAddKey -q --new-keyfile "${3}" -d /tmp/luks.key /dev/disk/by-label/system${count}
+
+                # Mount the encrypted volume
+                cryptsetup open  -d /tmp/luks.key /dev/disk/by-label/system${count} system${count}
                 DEVICES+=(/dev/mapper/system${count})
-                echo "system${count}  /dev/disk/by/part-label/system${0}  /tmp/luks.key" >> /tmp/crypttab.init
+
+                # Store the crypttab entry, as it may be needed in some init configurations.
+                # NB: the key path here is relative to the root filesystem in the target, later after reboot
+                dev_uuid=$(blkid -s UUID -o value /dev/disk/by-label/system${count})
+                echo "system${count}  UUID=${dev_uuid}  /etc/luks.key" >> /tmp/crypttab.init
             ;;
             no)
-                DEVICES+=(/dev/disk/by-partlabel/system${count})
+                DEVICES+=(/dev/disk/by-label/system${count})
             ;;
         esac
 
@@ -157,6 +196,7 @@ do_disk_setup () {
     test -f /tmp/luks.key && cp /tmp/luks.key /mnt/etc/luks.key
     test -f /tmp/crypttab.init && cp /tmp/crypttab.init /mnt/etc/crypttab.initramfs
 
+
     genfstab -U /mnt >> /mnt/etc/fstab
 }
 
@@ -208,6 +248,12 @@ do_package_setup () {
     lspci | grep Nvidia && MORE_PACKAGES+=(nvidia-dkms)
     lspci | grep -i realtek && MORE_PACKAGES+=(r8168-lts)
 
+    if [[ ${2} = "yes" ]] ; then
+        MORE_PACKAGES+=(tpm2-tss tpm2-tools)
+        MORE_PACKAGES+=(sbctl sbsigntools)
+    fi
+
+
     # NB: this will also copy in the pacman config
     pacstrap ${1} base ${CPUMODEL}-ucode \
         linux-lts linux-firmware btrfs-progs lvm2 mdadm \
@@ -232,8 +278,10 @@ inplace_target_setup () {
     username=
     language=
     region=
-    while getopts ":L:H:N:U:R:" OPT ; do
+    use_encryption=no
+    while getopts ":L:H:N:U:R:E" OPT ; do
         case ${OPT} in
+            E) use_encryption=yes ;;
             H) hostname="${OPTARG}" ;;
             N) fullname="${OPTARG}" ;;
             U) username="${OPTARG}" ;;
@@ -263,17 +311,21 @@ inplace_target_setup () {
     MODULES=(usbhid xhci_hcd vfat btrfs)
     BINARIES=(/usr/bin/btrfsck /usr/bin/btrfs)
 
+    # TODO remove this
+    # NB: this should NOT be required when using the TPM...
+    test yes = ${use_encryption} && FILES+=(/etc/luks.key)
+
     echo "s%^((MODULES=)\(.*\))%\2\(${MODULES[@]}\)%" | sed -E -f - -i /etc/mkinitcpio.conf
     echo "s%^((HOOKS=)\(.*\))%\2\(${HOOKS[@]}\)%" | sed -E -f - -i /etc/mkinitcpio.conf
     echo "s%^((BINARIES=)\(.*\))%\2\(${BINARIES[@]}\)%" | sed -E -f - -i /etc/mkinitcpio.conf
     echo "s%^((FILES=)\(.*\))%\2\(${FILES[@]}\)%" | sed -E -f - -i /etc/mkinitcpio.conf
 
     echo "s%/efi/EFI%/boot/EFI%" | sed -E -f - -i /etc/mkinitcpio.d/*.preset
+    echo "s%^#((default|fallback)_uki)%\1%" | sed -E -f - -i /etc/mkinitcpio.d/*.preset
 
     echo "rw quiet splash add_efi_memmap" >> /etc/kernel/cmdline
 
     mkinitcpio -P
-
     bootctl install
     sed -i -E 's%^#(timeout|console-mode)%\1%' /boot/loader/loader.conf
 
@@ -302,9 +354,7 @@ do_setup () {
             E) use_encryption=yes ;;
             K) echo "${OPTARG}" > /tmp/cryptkey ;
                 crypt_passphrase="/tmp/cryptkey" ;;
-            H) passdown_args+=("-H '${OPTARG}'") ;;
-            N) passdown_args+=("-N '${OPTARG}'") ;;
-            U) passdown_args+=("-U '${OPTARG}'") ;;
+            H|N|U|L|R) passdown_args+=("-${OPT} '${OPTARG}'") ;;
             P) volume_occupy="${OPTARG}" ;;
         esac
     done
@@ -319,7 +369,7 @@ do_setup () {
     do_disk_setup ${BLOCKDEVICES} ${use_encryption} ${crypt_passphrase} ${volume_occupy}
 
     target_files /mnt
-    do_package_setup /mnt
+    do_package_setup /mnt ${use_encryption}
 
     # Switch to target setup mode
     cp -v ${0} /mnt/tmp/
