@@ -201,8 +201,8 @@ do_disk_setup () {
 
     mkdir -p /mnt/etc
 
-    test -f /tmp/luks.key && cp /tmp/luks.key /mnt/etc/luks.key
-    test -f /tmp/crypttab.init && cp /tmp/crypttab.init /mnt/etc/crypttab.initramfs
+    test -f /tmp/luks.key && cp -v /tmp/luks.key /mnt/etc/luks.key
+    test -f /tmp/crypttab.init && cp -v /tmp/crypttab.init /mnt/etc/crypttab.initramfs
 
 
     genfstab -U /mnt >> /mnt/etc/fstab
@@ -257,12 +257,12 @@ do_package_setup () {
     lspci | grep -i realtek && MORE_PACKAGES+=(r8168-lts)
 
     if [[ ${2} = "yes" ]] ; then
-        MORE_PACKAGES+=(tpm2-tss tpm2-tools)
+        MORE_PACKAGES+=(tpm2-tss tpm2-tools tpm2-openssl tpm2-totp ssh-tpm-agent)
         MORE_PACKAGES+=(sbctl sbsigntools)
     fi
 
 
-    # NB: this will also copy in the pacman config
+    # NB: this will also copy in the pacman config & mirror list
     pacstrap ${1} base ${CPUMODEL}-ucode \
         linux-lts linux-firmware btrfs-progs lvm2 mdadm \
         efibootmgr grub grub-btrfs breeze-grub  \
@@ -352,7 +352,7 @@ inplace_target_setup () {
         if [[ 0 -eq ${actually_secure} ]] ; then
             MODULES+=(${tpmdrv})
 
-            test -f /etc/luks.key && | while read deviceuuid; do
+            test -f /etc/luks.key | while read deviceuuid; do
                 systemd-cryptenroll /dev/disk/by-uuid/${deviceuuid} \
                     --wipe-slot=empty \
                     --tpm2-device=auto \
@@ -366,7 +366,6 @@ inplace_target_setup () {
             sbctl setup
             sbctl create-keys
             sbctl enroll-keys --microsoft
-
 
 
         else # when the system doesn't have TPM or doesn't support SecureBoot
@@ -389,7 +388,7 @@ inplace_target_setup () {
     echo "s%^#((default|fallback)_uki)%\1%" | sed -E -f - -i /etc/mkinitcpio.d/*.preset
 
 
-    mkinitcpio -P
+    mkinitcpio -P # This must happen AFTER all modifications to /etc/crypttab.initramfs
     test 0 -eq "${actually_secure}" && sbctl sign-all
 
     bootctl install
@@ -443,6 +442,6 @@ do_setup () {
 }
 
 case ${1} in
-    setup)  do_setup "${@[@]:1}";;
-    target) inplace_target_setup "${@[@]:1}" ;;
+    setup)  do_setup "${@:1}";;
+    target) inplace_target_setup "${@:1}" ;;
 esac
