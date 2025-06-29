@@ -8,8 +8,15 @@
 #
 # This deploys Arch linux using a sensible disk layout for laptops and desktop workstations.
 #
-# Any persistent disks that you want to preserve should be disconnected from the host during installation.
 # This script will wipe all non-hotpluggable storage, set up encryption (if configured) and LVM, and prepare a BTRFS host filesystem.
+#
+# Prerequisites
+#   - Disconnect any storage devices which should not be erased during installation.
+#   - If you want SecureBoot to work, activate setup mode in your BIOS __before__ performing this installation.
+#
+# There isn't much security to be gained in setting up encryption without using SecureBoot and the TPM.
+# This script will set up encryption anyway, but the key will be baked into the initramfs.
+# SecureBoot and TPM key enrollment will only occur if both are available and in setup mode during installation.
 #
 # Usage:
 #   1.  Download this script to /tmp/archsetup.sh
@@ -18,7 +25,8 @@
 #   4.  Reboot
 #
 #
-# bash archsetup.sh <options>
+# (Recommend using option -x to correctly diagnose any errors...)
+# bash -x archsetup.sh <options>
 #
 #   -N <full username>  e.g. "Bill Gates"
 #   -U <username>       e.g. "billgates"
@@ -270,6 +278,24 @@ do_package_setup () {
 
 }
 
+get_tpm_module_driver () {
+    dmesg | grep -oE 'tpm_[a-z0-9]+'
+}
+
+# extract a few key values from the sbctl JSON status, rendered shell-compatible variables
+secureboot_support_status () {
+    sbctl status --json | sed 's/,/,\n/' | \
+        grep -oE -e '"(installed|setup_mode|secure_boot)":\s*(true|false)' | \
+        sed -E 's/:\s*/=/g; s/"//g;' | tr  '[:lower:]' '[:upper:]'
+}
+
+# return 0 when SB is supported & setup mode is active.
+secureboot_setup_active () {
+    eval $(secureboot_support_status)
+    test "true" = "${SETUP_MODE}" -a "true" = "${SECURE_BOOT}"
+}
+
+
 # Setup the internal target environment
 # Context: target
 inplace_target_setup () {
@@ -311,9 +337,48 @@ inplace_target_setup () {
     MODULES=(usbhid xhci_hcd vfat btrfs)
     BINARIES=(/usr/bin/btrfsck /usr/bin/btrfs)
 
-    # TODO remove this
-    # NB: this should NOT be required when using the TPM...
-    test yes = ${use_encryption} && FILES+=(/etc/luks.key)
+
+    tpmdrv=$(get_tpm_module_driver)
+    secureboot_setup_active
+    has_sb=$?
+
+
+    test -n "${tpmdrv}" -a 0 -eq ${has_sb} -a 'yes' = "${use_encryption}"
+    actually_secure=$?
+
+    if [[ "yes" = ${use_encryption} ]]; then
+
+
+        if [[ 0 -eq ${actually_secure} ]] ; then
+            MODULES+=(${tpmdrv})
+
+            test -f /etc/luks.key && | while read deviceuuid; do
+                systemd-cryptenroll /dev/disk/by-uuid/${deviceuuid} \
+                    --wipe-slot=empty \
+                    --tpm2-device=auto \
+                    --tpm2-pcrs=1+2+3+4+7+15 \
+                    --tpm2-with-pin=yes
+            done < <(grep "/etc/luks.key" /etc/crypttab.initramfs | grep -oE 'UUID=[a-f0-9\-]+' | cut -d = -f 2)
+
+            sed 's%/etc/luks.key%none\ttpm2-device=auto%g' /etc/crypttab.initramfs
+            echo "root=/dev/system/root rootflags=subvol=@root" >> /etc/kernel/cmdline
+
+            sbctl setup
+            sbctl create-keys
+            sbctl enroll-keys --microsoft
+
+
+
+        else # when the system doesn't have TPM or doesn't support SecureBoot
+            # this adds the keyfile to the initramfs.
+            # this is insecure.
+            FILES+=(/etc/luks.key)
+
+        fi
+
+    fi
+
+    echo "rw quiet splash add_efi_memmap" >> /etc/kernel/cmdline
 
     echo "s%^((MODULES=)\(.*\))%\2\(${MODULES[@]}\)%" | sed -E -f - -i /etc/mkinitcpio.conf
     echo "s%^((HOOKS=)\(.*\))%\2\(${HOOKS[@]}\)%" | sed -E -f - -i /etc/mkinitcpio.conf
@@ -323,9 +388,10 @@ inplace_target_setup () {
     echo "s%/efi/EFI%/boot/EFI%" | sed -E -f - -i /etc/mkinitcpio.d/*.preset
     echo "s%^#((default|fallback)_uki)%\1%" | sed -E -f - -i /etc/mkinitcpio.d/*.preset
 
-    echo "rw quiet splash add_efi_memmap" >> /etc/kernel/cmdline
 
     mkinitcpio -P
+    test 0 -eq "${actually_secure}" && sbctl sign-all
+
     bootctl install
     sed -i -E 's%^#(timeout|console-mode)%\1%' /boot/loader/loader.conf
 
@@ -373,7 +439,7 @@ do_setup () {
 
     # Switch to target setup mode
     cp -v ${0} /mnt/tmp/
-    arch-chroot /mnt bash /tmp/archsetup.sh target "${passdown_args[@]}"
+    arch-chroot /mnt bash -x /tmp/archsetup.sh target "${passdown_args[@]}"
 }
 
 case ${1} in
