@@ -54,15 +54,16 @@ get_swap_gb () {
 }
 
 find_isomount_device_major () {
-    lsblk -s -o NAME,PKNAME,MAJ $(mount -l -t iso9600 | cut -f 1 -d ' ') | tail -n1 | awk '{print $3}'
+    lsblk -s -o NAME,PKNAME,MAJ $(mount -l -t iso9660 | cut -f 1 -d ' ') | tail -n1 | awk '{print $3}'
 }
 
 find_target_disk () { # May yield multiple non-hotplug disks
-    FIELDS=NAME,TYPE,HOTPLUG,SIZE,DISC-ZERO,ROTA
+    FIELDS=NAME,TYPE,HOTPLUG,SIZE,DISC-ZERO,ROTA,SERIAL,MODEL
     exclude=$(find_isomount_device_major)
     (   lsblk -o ${FIELDS} -S -e ${exclude} -Py
         lsblk -o ${FIELDS} -N -e ${exclude} -Py
-    ) | grep 'TYPE="disk"' | grep 'HOTPLUG="0"'
+        lsblk -o ${FIELDS} -Py # all devices, e.g. for older machines that can't distinguish S/NVME from others
+    ) | sort -u | grep -v -e 'MODEL=""' -e 'SERIAL=""' |  grep 'TYPE="disk"' | grep 'HOTPLUG="0"'
 }
 
 
