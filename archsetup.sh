@@ -108,7 +108,7 @@ do_disk_setup () {
         sgdisk --clear \
             --new=1:0:+${BOOT_EFI_SIZE} --typecode=1:ef00 --change-name=1:EFI${count} \
             --new=2:0:0                 --typecode=2:8300 --change-name=2:system${count} \
-            ${PATH} # from the params above
+            ${DPATH} # from the params above
 
         EFI_DEV+=(/dev/disk/by-label/EFI${count})
 
@@ -142,7 +142,7 @@ do_disk_setup () {
             ;;
         esac
 
-    done < ${1}
+    done < <(sed 's%PATH=%DPATH=%' ${1})
 
     for dev in ${DEVICES[@]} ; do
         pvcreate ${dev}
