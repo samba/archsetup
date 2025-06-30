@@ -260,17 +260,18 @@ Exec = /usr/bin/bootctl update
 EOF
 }
 
+get_cpu_model () {
+    case "$(cat /proc/cpuinfo | grep vendor_id | awk '{print $3}' | sort -u)" in
+        AuthenticAMD) echo "amd" ;;
+        GenuineIntel) echo "intel" ;;
+    esac
+}
+
+
 # Bootstrap package installation
 # Context: liveiso
 do_package_setup () {
-    CPUMODEL=NONE
-    case "$(cat /proc/cpuinfo | grep vendor_id | awk '{print $3}')" in
-        AuthenticAMD) CPUMODEL="amd" ;;
-        GenuineIntel) CPUMODEL="intel" ;;
-    esac
-
     reflector --save /etc/pacman.d/mirrorlist --protocol https --sort rate --latest 5
-
 
     MORE_PACKAGES=()
 
@@ -285,7 +286,7 @@ do_package_setup () {
 
 
     # NB: this will also copy in the pacman config & mirror list
-    pacstrap ${1} base ${CPUMODEL}-ucode \
+    pacstrap ${1} base $(get_cpu_model)-ucode \
         linux-lts linux-firmware btrfs-progs lvm2 mdadm \
         efibootmgr grub grub-btrfs breeze-grub  \
         inotify-tools \
