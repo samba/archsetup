@@ -176,7 +176,7 @@ do_disk_setup () {
     # Create thin volumes for everything else
     lvcreate ${volopts} --size 1G -n tmeta system
     lvcreate ${volopts} --extents "${4:-40%VG}" -n tpool system
-    lvconvert --thinpool system/tpool --poolmetadata system/tmeta
+    lvconvert -y --thinpool system/tpool --poolmetadata system/tmeta
 
     # Create a single root volume for btrfs
     # This is a fixed size, assuming that the remaining space will be allocated later as the user sees fit
@@ -429,10 +429,7 @@ inplace_target_setup () {
 # Context: liveiso
 do_setup () {
 
-    volume_occupy="100%FREE"
-    use_encryption=no
-    crypt_passphrase=NONE
-    passdown_args=()
+    local volume_occupy= use_encryption=no crypt_passphrase=NONE passdown_args=()
     while getopts ":EK:H:N:U:P:" OPT ; do
         case ${OPT} in
             E) use_encryption=yes ;;
@@ -450,7 +447,7 @@ do_setup () {
     find_target_disk > ${BLOCKDEVICES}
 
     # Sets up the partitions & filesystems, mounting at /mnt
-    do_disk_setup ${BLOCKDEVICES} ${use_encryption} ${crypt_passphrase} ${volume_occupy}
+    do_disk_setup ${BLOCKDEVICES} ${use_encryption} ${crypt_passphrase} ${volume_occupy:-50%FREE}
 
     target_files /mnt
     do_package_setup /mnt ${use_encryption}
