@@ -120,6 +120,9 @@ do_disk_setup () {
             SSD=$(( SSD + 1 ))
         fi
 
+        sleep 5; # wait for partitions to settle
+        partprobe ${DPATH}
+
         case ${2:-no} in
             yes) # setup encryption
                 # Create the encryption volume
