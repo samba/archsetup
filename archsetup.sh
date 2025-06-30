@@ -209,7 +209,7 @@ do_disk_setup () {
     umount /mnt
     mount -o ${mountopts},subvol=@root /dev/system/root /mnt
 
-    mkdir -p /mnt/home /mnt/var /mnt/.snapshot
+    mkdir -p /mnt/home /mnt/var /mnt/.snapshot /mnt/boot
     mount -o ${mountopts},subvol=@home /dev/system/root /mnt/home
     mount -o ${mountopts},subvol=@var /dev/system/root /mnt/var
     mount -o ${mountopts},subvol=@snap /dev/system/root /mnt/.snapshot
