@@ -153,10 +153,10 @@ do_disk_setup () {
 
     if [[ ${#EFI_DEV[@]} -gt 1 ]]; then  # set up RAID mirror for the EFI boot
         mdadm --create /dev/md0efi --level 1 --raid-disks ${#EFI_DEV[@]} --metadata 1.0 ${EFI_DEV[@]}
-        mkfs.fat -F32 -N EFI /dev/md0efi
+        mkfs.fat -F32 -n EFI /dev/md0efi
         echo "/dev/md0efi" > /tmp/efidev
     else
-        mkfs.fat -F32 -N EFI ${EFI_DEV[0]}
+        mkfs.fat -F32 -n EFI ${EFI_DEV[0]}
         echo "${EFI_DEV[0]}" > /tmp/efidev
     fi
 
