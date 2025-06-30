@@ -151,10 +151,10 @@ do_disk_setup () {
         pvcreate ${dev}
     done
 
-    if [[ ${#EFI_DEV} -gt 1 ]]; then  # set up RAID mirror for the EFI boot
-        mdadm --create /dev/md0_efi --level 1 --raid-disks ${#EFI_DEV} --metadata 1.0 ${EFI_DEV[@]}
-        mkfs.fat -F32 -N EFI /dev/md0_efi
-        echo "/dev/md0_efi" > /tmp/efidev
+    if [[ ${#EFI_DEV[@]} -gt 1 ]]; then  # set up RAID mirror for the EFI boot
+        mdadm --create /dev/md0efi --level 1 --raid-disks ${#EFI_DEV[@]} --metadata 1.0 ${EFI_DEV[@]}
+        mkfs.fat -F32 -N EFI /dev/md0efi
+        echo "/dev/md0efi" > /tmp/efidev
     else
         mkfs.fat -F32 -N EFI ${EFI_DEV[0]}
         echo "${EFI_DEV[0]}" > /tmp/efidev
@@ -163,10 +163,10 @@ do_disk_setup () {
     vgcreate system ${DEVICES[@]}
 
     volopts=""
-    if [[ ${#DEVICES} -eq 2 ]] ; then  # a RAID mirror is sensible
-        volopts="--mirrors ${#DEVICES}"
-    elif [[ ${#DEVICES} -gt 2 ]] ; then  # more disks, RAID5 is better
-        volopts="--type raid5 -i ${#DEVICES}"
+    if [[ ${#DEVICES[@]} -eq 2 ]] ; then  # a RAID mirror is sensible
+        volopts="--mirrors ${#DEVICES[@]}"
+    elif [[ ${#DEVICES[@]} -gt 2 ]] ; then  # more disks, RAID5 is better
+        volopts="--type raid5 -i ${#DEVICES[@]}"
     fi
 
     # Create a "thick" swap volume, because it's useful for hibernate/resume
@@ -184,13 +184,13 @@ do_disk_setup () {
 
     mkfsopts="-O quota,fst,bgt,squota"
     mountopts="noatime,compress=lzo,defaults"
-    if [[ ${ZEROES} -eq ${#DEVICES} ]]; then
+    if [[ ${ZEROES} -eq ${#DEVICES[@]} ]]; then
         mountopts="${mountopts},discard"
     else
         mkfsopts="${mkfsopts} --nodiscard"
     fi
 
-    if [[ ${SSD} -eq ${#DEVICES} ]]; then
+    if [[ ${SSD} -eq ${#DEVICES[@]} ]]; then
         mountopts="${mountopts},ssd"
     fi
 
