@@ -328,7 +328,7 @@ inplace_target_setup () {
     language=
     region=
     use_encryption=no
-    while getopts ":L:H:N:U:R:E" OPT ; do
+    while getopts ":L:H:N:U:R:E" OPT "$@"; do
         case "${OPT}" in
             E) use_encryption=yes ;;
             H) hostname="${OPTARG}" ;;
@@ -360,14 +360,13 @@ inplace_target_setup () {
     MODULES=(usbhid xhci_hcd vfat btrfs)
     BINARIES=(/usr/bin/btrfsck /usr/bin/btrfs)
 
+    has_sb=1
+    secureboot_setup_active && has_sb=0 || : ignore
 
-    tpmdrv=$(get_tpm_module_driver)
-    secureboot_setup_active
-    has_sb=$?
+    tpmdrv=$(get_tpm_module_driver || echo -n "")
 
-
-    test -n "${tpmdrv}" -a 0 -eq ${has_sb} -a 'yes' = "${use_encryption}"
-    actually_secure=$?
+    actually_secure=1
+    test -n "${tpmdrv}" -a 0 -eq ${has_sb} -a 'yes' = "${use_encryption}" && actually_secure=0 || : ignore
 
     if [[ "yes" = ${use_encryption} ]]; then
 
@@ -434,7 +433,7 @@ inplace_target_setup () {
 do_setup () {
 
     volume_occupy= use_encryption=no crypt_passphrase=NONE passdown_args=()
-    while getopts ":EK:H:N:U:P:L:R:" OPT ; do
+    while getopts ":EK:H:N:U:P:L:R:" OPT "$@"; do
         case ${OPT} in
             E) use_encryption=yes ;;
             P) volume_occupy="${OPTARG}" ;;
