@@ -329,7 +329,7 @@ inplace_target_setup () {
     region=
     use_encryption=no
     while getopts ":L:H:N:U:R:E" OPT ; do
-        case ${OPT} in
+        case "${OPT}" in
             E) use_encryption=yes ;;
             H) hostname="${OPTARG}" ;;
             N) fullname="${OPTARG}" ;;
@@ -456,8 +456,8 @@ do_setup () {
     do_package_setup /mnt ${use_encryption}
 
     # Switch to target setup mode
-    cp -v ${0} /mnt/tmp/
-    arch-chroot /mnt bash -x /tmp/archsetup.sh target ${passdown_args[@]}
+    cp -v ${0} /mnt/opt/
+    arch-chroot /mnt bash -x /opt/archsetup.sh target ${passdown_args[@]}
 }
 
 case ${1} in
