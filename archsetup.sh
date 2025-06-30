@@ -72,13 +72,13 @@ find_target_disk () { # May yield multiple non-hotplug disks
 
     while read device; do
         DEV_EXCLUDE+=("${device}")
-        GREP_EXCLUDE+=("-e 'KNAME=\"${device}\"'")
+        GREP_EXCLUDE+=("-e KNAME=\"${device}\"")
     done < <(find_isomount_device | grep -oE 'KNAME="[^"]+"' | tr -d '"' | cut -d = -f 2 | sort -u)
 
 
     # Exclude everything in the tree of the ISO mount, and everything that doesn't have a serial number.
     # Include only disk-devices that aren't hotpluggable
-    grep -v ${GREP_EXCLUDE[@]} -e 'MODEL=""' -e 'SERIAL=""' ${devices} | grep 'HOTPLUG="0"' | grep 'TYPE="disk"'
+    grep -v "${GREP_EXCLUDE[@]}" -e 'MODEL=""' -e 'SERIAL=""' ${devices} | grep 'HOTPLUG="0"' | grep 'TYPE="disk"'
 }
 
 
