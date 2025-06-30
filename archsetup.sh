@@ -407,8 +407,8 @@ inplace_target_setup () {
     echo "s%^((BINARIES=)\(.*\))%\2\(${BINARIES[@]}\)%" | sed -E -f - -i /etc/mkinitcpio.conf
     echo "s%^((FILES=)\(.*\))%\2\(${FILES[@]}\)%" | sed -E -f - -i /etc/mkinitcpio.conf
 
-    echo "s%/efi/EFI%/boot/EFI%" | sed -E -f - -i /etc/mkinitcpio.d/*.preset
-    echo "s%^#((default|fallback)_uki)%\1%" | sed -E -f - -i /etc/mkinitcpio.d/*.preset
+    echo "s%/efi/EFI%/boot/EFI%" | sed -E -f - -i /etc/mkinitcpio.d/linux-lts.preset
+    echo "s%^#((default|fallback)_uki)%\1%" | sed -E -f - -i /etc/mkinitcpio.d/linux-lts.preset
 
 
     mkinitcpio -P # This must happen AFTER all modifications to /etc/crypttab.initramfs
