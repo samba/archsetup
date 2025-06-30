@@ -53,17 +53,37 @@ get_swap_gb () {
     echo $((count +1)) # round up for swap
 }
 
-find_isomount_device_major () {
-    lsblk -s -o NAME,PKNAME,MAJ $(mount -l -t iso9660 | cut -f 1 -d ' ') | tail -n1 | awk '{print $3}'
+find_isomount_device () {
+    lsblk -s -o NAME,PKNAME,KNAME,FSTYPE -Py $(mount -l -t iso9660 | cut -f 1 -d ' ')
 }
 
 find_target_disk () { # May yield multiple non-hotplug disks
-    FIELDS=NAME,TYPE,HOTPLUG,SIZE,DISC-ZERO,ROTA,SERIAL,MODEL
-    exclude=$(find_isomount_device_major)
-    (   lsblk -o ${FIELDS} -S -e ${exclude} -Py
-        lsblk -o ${FIELDS} -N -e ${exclude} -Py
+    devices=$(mktemp /tmp/devices.XXXXXX)
+    FIELDS=NAME,TYPE,HOTPLUG,SIZE,DISC-ZERO,ROTA,SERIAL,MODEL,KNAME,PKNAME,FSTYPE
+
+    (   lsblk -o ${FIELDS} -S -Py
+        lsblk -o ${FIELDS} -N -Py
         lsblk -o ${FIELDS} -Py # all devices, e.g. for older machines that can't distinguish S/NVME from others
-    ) | sort -u | grep -v -e 'MODEL=""' -e 'SERIAL=""' |  grep 'TYPE="disk"' | grep 'HOTPLUG="0"'
+    ) | sort -u > ${devices}
+
+    DEV_EXCLUDE=()
+    GREP_EXCLUDE=()
+
+    # initial exclude conditions of all ISO9660 filesystems
+    DEV_EXCLUDE+=($(find_isomount_device | grep -oE 'KNAME="[^"]+"' | tr -d '"' | cut -d = -f 2))
+    GREP_EXCLUDE+=("-e 'KNAME=\"${DEV_EXCLUDE[0]}\"'")
+
+
+    while true; do # gather the parent three
+        parent=$(grep "KNAME=\"${DEV_EXCLUDE[-1]}\"" ${devices} | grep -oE 'PKNAME="[^"]+"' | tr -d '"' | cut -d = -f 2)
+        test -z "${parent}" && break
+        DEV_EXCLUDE+=("${parent}")
+        GREP_EXCLUDE+=("-e 'KNAME=\"${parent}\"'")
+    done
+
+    # Exclude everything in the tree of the ISO mount, and everything that doesn't have a serial number.
+    # Include only disk-devices that aren't hotpluggable
+    grep -v ${GREP_EXCLUDE[@]} -e 'MODEL=""' -e 'SERIAL=""' ${devices} | grep 'HOTPLUG="0"' | grep 'TYPE="disk"'
 }
 
 
@@ -443,6 +463,7 @@ do_setup () {
 }
 
 case ${1} in
+    disk) find_target_disk ;;
     setup)  do_setup "${@:1}";;
     target) inplace_target_setup "${@:1}" ;;
 esac
