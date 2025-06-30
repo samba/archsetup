@@ -195,11 +195,10 @@ do_disk_setup () {
     fi
 
     mkswap -L swap /dev/system/swap
-    mkfs.btrfs -L arch/root "${mkfsopts}" /dev/system/root
+    mkfs.btrfs -L arch/root ${mkfsopts} /dev/system/root
 
     mount -o ${mountopts} /dev/system/root /mnt
 
-    btrfs subvolume create /mnt/@
     btrfs subvolume create /mnt/@root
     btrfs subvolume create /mnt/@home
     btrfs subvolume create /mnt/@var
@@ -209,6 +208,9 @@ do_disk_setup () {
 
     umount /mnt
     mount -o ${mountopts},subvol=@root /dev/system/root /mnt
+
+    mkdir -p /mnt/{home,var/log,var/cache,.snapshot}
+
     mount -o ${mountopts},subvol=@home /dev/system/root /mnt/home
     mount -o ${mountopts},subvol=@var /dev/system/root /mnt/var
     mount -o ${mountopts},subvol=@log /dev/system/root /mnt/var/log
