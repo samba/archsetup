@@ -470,12 +470,12 @@ do_setup () {
 cleanup () {
     umount /mnt/.snapshot /mnt/var/log /mnt/var/cache /mnt/home /mnt/boot /mnt/var /mnt
     vgchange -a n system
-    pvs -o pv_name | tr -d '[:space:]' | tail -n -1 | xargs -I{} pvremove -ff {}
+    pvs -o pv_name | tr -d '[:space:]' | grep -v '^PV$' | xargs -I{} pvremove -ff {}
 }
 
 case ${1} in
     clean) cleanup ;;
     disk) find_target_disk ;;
-    setup)  do_setup "${@:1}";;
-    target) inplace_target_setup "${@:1}" ;;
+    setup)  do_setup "${@:2}";;
+    target) inplace_target_setup "${@:2}" ;;
 esac
