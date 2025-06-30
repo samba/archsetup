@@ -209,13 +209,14 @@ do_disk_setup () {
     umount /mnt
     mount -o ${mountopts},subvol=@root /dev/system/root /mnt
 
-    mkdir -p /mnt/{home,var/log,var/cache,.snapshot}
-
+    mkdir -p /mnt/home /mnt/var /mnt/.snapshot
     mount -o ${mountopts},subvol=@home /dev/system/root /mnt/home
     mount -o ${mountopts},subvol=@var /dev/system/root /mnt/var
+    mount -o ${mountopts},subvol=@snap /dev/system/root /mnt/.snapshot
+
+    mkdir -p /mnt/var/{log,cache}
     mount -o ${mountopts},subvol=@log /dev/system/root /mnt/var/log
     mount -o ${mountopts},subvol=@cache /dev/system/root /mnt/var/cache
-    mount -o ${mountopts},subvol=@snap /dev/system/root /mnt/.snapshot
 
     swapon -a
     mount -o defaults,nosuid,nodev,relatime,fmask=0022,dmask=0022,codepage=437,shortname=mixed,errors=remount-ro  $(cat /tmp/efidev) /mnt/boot
