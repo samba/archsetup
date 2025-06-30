@@ -432,10 +432,15 @@ inplace_target_setup () {
 # Main setup flow
 # Context: liveiso
 do_setup () {
+    crypt_passphrase=NONE
+    passdown_args=()
+    volume_occupy=
+    use_encryption=no
+    use_current_mounts=no
 
-    volume_occupy= use_encryption=no crypt_passphrase=NONE passdown_args=()
-    while getopts ":EK:H:N:U:P:L:R:" OPT "$@"; do
+    while getopts ":EK:H:N:U:P:L:R:M" OPT "$@"; do
         case ${OPT} in
+            M) use_current_mounts=yes ;;
             E) use_encryption=yes ;;
             P) volume_occupy="${OPTARG}" ;;
             K) echo "${OPTARG}" > /tmp/cryptkey ;
@@ -446,11 +451,13 @@ do_setup () {
 
     timedatectl  # refresh time
 
-    BLOCKDEVICES=$(mktemp /tmp/devices.XXXXXX)
-    find_target_disk > ${BLOCKDEVICES}
+    if [[ "no" = "${use_current_mounts}" ]]; then
+        BLOCKDEVICES=$(mktemp /tmp/devices.XXXXXX)
+        find_target_disk > ${BLOCKDEVICES}
 
-    # Sets up the partitions & filesystems, mounting at /mnt
-    do_disk_setup ${BLOCKDEVICES} ${use_encryption} ${crypt_passphrase} ${volume_occupy:-50%FREE}
+        # Sets up the partitions & filesystems, mounting at /mnt
+        do_disk_setup ${BLOCKDEVICES} ${use_encryption} ${crypt_passphrase} ${volume_occupy:-50%FREE}
+    fi
 
     target_files /mnt
     do_package_setup /mnt ${use_encryption}
