@@ -110,7 +110,7 @@ do_disk_setup () {
             --new=2:0:0                 --typecode=2:8300 --change-name=2:system${count} \
             ${DPATH} # from the params above
 
-        EFI_DEV+=(/dev/disk/by-label/EFI${count})
+        EFI_DEV+=(/dev/disk/by-partlabel/EFI${count})
 
         if [[ 1 -eq ${DISC_ZERO} ]]; then
             ZEROES=$(( ZEROES + 1 ))
@@ -123,22 +123,22 @@ do_disk_setup () {
         case ${2:-no} in
             yes) # setup encryption
                 # Create the encryption volume
-                cryptsetup luksFormat -q  /dev/disk/by-label/system${count} /tmp/luks.key
+                cryptsetup luksFormat -q  /dev/disk/by-partlabel/system${count} /tmp/luks.key
 
                 # If provided, also register the user's human-friendly key
-                test -f "${3}" &&  cryptsetup luksAddKey -q --new-keyfile "${3}" -d /tmp/luks.key /dev/disk/by-label/system${count}
+                test -f "${3}" &&  cryptsetup luksAddKey -q --new-keyfile "${3}" -d /tmp/luks.key /dev/disk/by-partlabel/system${count}
 
                 # Mount the encrypted volume
-                cryptsetup open  -d /tmp/luks.key /dev/disk/by-label/system${count} system${count}
+                cryptsetup open  -d /tmp/luks.key /dev/disk/by-partlabel/system${count} system${count}
                 DEVICES+=(/dev/mapper/system${count})
 
                 # Store the crypttab entry, as it may be needed in some init configurations.
                 # NB: the key path here is relative to the root filesystem in the target, later after reboot
-                dev_uuid=$(blkid -s UUID -o value /dev/disk/by-label/system${count})
+                dev_uuid=$(blkid -s UUID -o value /dev/disk/by-partlabel/system${count})
                 echo "system${count}  UUID=${dev_uuid}  /etc/luks.key" >> /tmp/crypttab.init
             ;;
             no)
-                DEVICES+=(/dev/disk/by-label/system${count})
+                DEVICES+=(/dev/disk/by-partlabel/system${count})
             ;;
         esac
 
