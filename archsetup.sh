@@ -53,6 +53,7 @@ get_swap_gb () {
     echo $((count +1)) # round up for swap
 }
 
+# NB: this lists the ENTIRE TREE path (reversed) of the ISO filesystem parents
 find_isomount_device () {
     lsblk -s -o NAME,PKNAME,KNAME,FSTYPE -Py $(mount -l -t iso9660 | cut -f 1 -d ' ')
 }
@@ -69,17 +70,11 @@ find_target_disk () { # May yield multiple non-hotplug disks
     DEV_EXCLUDE=()
     GREP_EXCLUDE=()
 
-    # initial exclude conditions of all ISO9660 filesystems
-    DEV_EXCLUDE+=($(find_isomount_device | grep -oE 'KNAME="[^"]+"' | tr -d '"' | cut -d = -f 2))
-    GREP_EXCLUDE+=("-e 'KNAME=\"${DEV_EXCLUDE[0]}\"'")
+    while read device; do
+        DEV_EXCLUDE+=("${device}")
+        GREP_EXCLUDE+=("-e 'KNAME=\"${device}\"'")
+    done < <(find_isomount_device | grep -oE 'KNAME="[^"]+"' | tr -d '"' | cut -d = -f 2 | sort -u)
 
-
-    while true; do # gather the parent three
-        parent=$(grep "KNAME=\"${DEV_EXCLUDE[-1]}\"" ${devices} | grep -oE 'PKNAME="[^"]+"' | tr -d '"' | cut -d = -f 2)
-        test -z "${parent}" && break
-        DEV_EXCLUDE+=("${parent}")
-        GREP_EXCLUDE+=("-e 'KNAME=\"${parent}\"'")
-    done
 
     # Exclude everything in the tree of the ISO mount, and everything that doesn't have a serial number.
     # Include only disk-devices that aren't hotpluggable
