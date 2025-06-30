@@ -339,8 +339,8 @@ inplace_target_setup () {
         esac
     done
 
-    ${language:=en_US.UTF-8}
-    ${region:=America/Los_Angeles}
+    : ${language:=en_US.UTF-8}
+    : ${region:=America/Los_Angeles}
 
 
     echo "${hostname}" > /etc/hostname
@@ -433,17 +433,16 @@ inplace_target_setup () {
 # Context: liveiso
 do_setup () {
 
-    local volume_occupy= use_encryption=no crypt_passphrase=NONE passdown_args=()
-    while getopts ":EK:H:N:U:P:" OPT ; do
+    volume_occupy= use_encryption=no crypt_passphrase=NONE passdown_args=()
+    while getopts ":EK:H:N:U:P:L:R:" OPT ; do
         case ${OPT} in
             E) use_encryption=yes ;;
+            P) volume_occupy="${OPTARG}" ;;
             K) echo "${OPTARG}" > /tmp/cryptkey ;
                 crypt_passphrase="/tmp/cryptkey" ;;
             H|N|U|L|R) passdown_args+=("-${OPT} '${OPTARG}'") ;;
-            P) volume_occupy="${OPTARG}" ;;
         esac
     done
-
 
     timedatectl  # refresh time
 
@@ -458,7 +457,7 @@ do_setup () {
 
     # Switch to target setup mode
     cp -v ${0} /mnt/tmp/
-    arch-chroot /mnt bash -x /tmp/archsetup.sh target "${passdown_args[@]}"
+    arch-chroot /mnt bash -x /tmp/archsetup.sh target ${passdown_args[@]}
 }
 
 case ${1} in
