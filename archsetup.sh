@@ -421,9 +421,8 @@ inplace_target_setup () {
     sed -i -E "s@^[# ]+(%(wheel|sudo))@\1@" /etc/sudoers
 
     groupadd -g 911 sudo
-    useradd --btrfs-subvolume-home -c "${fullname}" -U -G sudo,users -m ${username}
+    useradd --btrfs-subvolume-home -c ${fullname:-NOT_PROVIDED} -U -G sudo,users -m ${username:-NOT_PROVIDED}
     passwd ${username}
-
 
     systemctl enable systemd-networkd
     systemctl enable systemd-resolved
@@ -440,9 +439,9 @@ do_setup () {
     local use_encryption=no
     local use_current_mounts=no
 
-    while getopts ":K:H:N:U:P:L:R:ME" OPT "$@"; do
+    while getopts ":K:H:F:N:U:P:L:R:ME" OPT "$@"; do
         case ${OPT} in
-            H|N|U|L|R) passdown_args+=("-${OPT} '${OPTARG}'") ;;
+            H|F|N|U|L|R) passdown_args+=("-${OPT} ${OPTARG}") ;;
             M) use_current_mounts=yes ;;
             E) use_encryption=yes ;;
             P) volume_occupy="${OPTARG}" ;;
