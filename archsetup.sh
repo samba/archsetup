@@ -307,6 +307,7 @@ get_tpm_module_driver () {
 
 # extract a few key values from the sbctl JSON status, rendered shell-compatible variables
 secureboot_support_status () {
+    command -v sbctl >/dev/null || return 1
     sbctl status --json | sed 's/,/,\n/' | \
         grep -oE -e '"(installed|setup_mode|secure_boot)":\s*(true|false)' | \
         sed -E 's/:\s*/=/g; s/"//g;' | tr  '[:lower:]' '[:upper:]'
@@ -314,8 +315,8 @@ secureboot_support_status () {
 
 # return 0 when SB is supported & setup mode is active.
 secureboot_setup_active () {
-    eval $(secureboot_support_status)
-    test "true" = "${SETUP_MODE}" -a "true" = "${SECURE_BOOT}"
+    eval "$(secureboot_support_status)"
+    test "true" = "${SETUP_MODE:-false}" -a "true" = "${SECURE_BOOT:-false}"
 }
 
 
