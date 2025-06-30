@@ -410,6 +410,7 @@ inplace_target_setup () {
     echo "s%/efi/EFI%/boot/EFI%" | sed -E -f - -i /etc/mkinitcpio.d/linux-lts.preset
     echo "s%^#((default|fallback)_uki)%\1%" | sed -E -f - -i /etc/mkinitcpio.d/linux-lts.preset
 
+    mkdir -p /boot/EFI/Linux
 
     mkinitcpio -P # This must happen AFTER all modifications to /etc/crypttab.initramfs
     test 0 -eq "${actually_secure}" && sbctl sign-all
@@ -419,6 +420,7 @@ inplace_target_setup () {
 
     sed -i -E "s@^[# ]+(%(wheel|sudo))@\1@" /etc/sudoers
 
+    groupadd -g 911 sudo
     useradd --btrfs-subvolume-home -c "${fullname}" -U -G sudo,users -m ${username}
     passwd ${username}
 
@@ -440,12 +442,12 @@ do_setup () {
 
     while getopts ":K:H:N:U:P:L:R:ME" OPT "$@"; do
         case ${OPT} in
-            M) local use_current_mounts=yes ;;
-            E) local use_encryption=yes ;;
-            P) local volume_occupy="${OPTARG}" ;;
+            H|N|U|L|R) passdown_args+=("-${OPT} '${OPTARG}'") ;;
+            M) use_current_mounts=yes ;;
+            E) use_encryption=yes ;;
+            P) volume_occupy="${OPTARG}" ;;
             K) echo "${OPTARG}" > /tmp/cryptkey ;
-                local crypt_passphrase="/tmp/cryptkey" ;;
-            H|N|U|L|R) local passdown_args+=("-${OPT} '${OPTARG}'") ;;
+                crypt_passphrase="/tmp/cryptkey" ;;
         esac
     done
 
