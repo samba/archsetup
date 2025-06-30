@@ -175,7 +175,7 @@ do_disk_setup () {
 
     # Create thin volumes for everything else
     lvcreate ${volopts} --size 1G -n tmeta system
-    lvcreate ${volopts} --extents "${4:-40%VG}"  tpool system
+    lvcreate ${volopts} --extents "${4:-40%VG}" -n tpool system
     lvconvert --thinpool system/tpool --poolmetadata system/tmeta
 
     # Create a single root volume for btrfs
