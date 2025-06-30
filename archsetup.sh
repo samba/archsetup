@@ -323,20 +323,20 @@ secureboot_setup_active () {
 # Setup the internal target environment
 # Context: target
 inplace_target_setup () {
-    hostname=NONE
-    fullname=NONE
-    username=
-    language=
-    region=
-    use_encryption=no
+    local hostname=NONE
+    local fullname=NONE
+    local username=
+    local language=
+    local region=
+    local use_encryption=no
     while getopts ":L:H:N:U:R:E" OPT "$@"; do
         case "${OPT}" in
-            E) use_encryption=yes ;;
-            H) hostname="${OPTARG}" ;;
-            N) fullname="${OPTARG}" ;;
-            U) username="${OPTARG}" ;;
-            R) region="${OPTARG}" ;;
-            L) language="${OPTARG}" ;;
+            E) local use_encryption=yes ;;
+            H) local hostname="${OPTARG}" ;;
+            N) local fullname="${OPTARG}" ;;
+            U) local username="${OPTARG}" ;;
+            R) local region="${OPTARG}" ;;
+            L) local language="${OPTARG}" ;;
         esac
     done
 
@@ -432,20 +432,20 @@ inplace_target_setup () {
 # Main setup flow
 # Context: liveiso
 do_setup () {
-    crypt_passphrase=NONE
-    passdown_args=()
-    volume_occupy=
-    use_encryption=no
-    use_current_mounts=no
+    local crypt_passphrase=NONE
+    local passdown_args=()
+    local volume_occupy=
+    local use_encryption=no
+    local use_current_mounts=no
 
-    while getopts ":EK:H:N:U:P:L:R:M" OPT "$@"; do
+    while getopts ":K:H:N:U:P:L:R:ME" OPT "$@"; do
         case ${OPT} in
-            M) use_current_mounts=yes ;;
-            E) use_encryption=yes ;;
-            P) volume_occupy="${OPTARG}" ;;
+            M) local use_current_mounts=yes ;;
+            E) local use_encryption=yes ;;
+            P) local volume_occupy="${OPTARG}" ;;
             K) echo "${OPTARG}" > /tmp/cryptkey ;
-                crypt_passphrase="/tmp/cryptkey" ;;
-            H|N|U|L|R) passdown_args+=("-${OPT} '${OPTARG}'") ;;
+                local crypt_passphrase="/tmp/cryptkey" ;;
+            H|N|U|L|R) local passdown_args+=("-${OPT} '${OPTARG}'") ;;
         esac
     done
 
