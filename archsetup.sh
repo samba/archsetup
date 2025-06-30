@@ -460,7 +460,14 @@ do_setup () {
     arch-chroot /mnt bash -x /opt/archsetup.sh target ${passdown_args[@]}
 }
 
+cleanup () {
+    umount /mnt/.snapshot /mnt/var/log /mnt/var/cache /mnt/home /mnt/boot /mnt/var /mnt
+    vgchange -a n system
+    pvs -o pv_name | tail -n -1 | xargs -I{} pvremove -ff {}
+}
+
 case ${1} in
+    clean) cleanup ;;
     disk) find_target_disk ;;
     setup)  do_setup "${@:1}";;
     target) inplace_target_setup "${@:1}" ;;
