@@ -478,7 +478,7 @@ cleanup () {
     dd if=/dev/urandom of=/dev/system/root bs=20M count=1
     dd if=/dev/urandom of=/dev/system/swap bs=20M count=1
     vgchange -a n system
-    pvs -o pv_name | grep -v '^PV$' | tr -d '[:space:]' | while read pv; do
+    pvs -o pv_name | grep -v -E '^\s+PV\s+$' | tr -d '[:space:]' | while read pv; do
         pvremove -ff ${pv}
         dd if=/dev/urandom of=${pv} bs=4M count=1
     done
