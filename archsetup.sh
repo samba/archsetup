@@ -326,15 +326,17 @@ inplace_target_setup () {
     local hostname=NONE
     local fullname=NONE
     local username=
+    local userpass=
     local language=
     local region=
     local use_encryption=no
-    while getopts ":L:H:N:U:R:E" OPT "$@"; do
+    while getopts ":L:H:N:U:R:P:E" OPT "$@"; do
         case "${OPT}" in
             E) local use_encryption=yes ;;
             H) local hostname="${OPTARG}" ;;
             N) local fullname="${OPTARG}" ;;
             U) local username="${OPTARG}" ;;
+            P) local userpass="${OPTARG}" ;;
             R) local region="${OPTARG}" ;;
             L) local language="${OPTARG}" ;;
         esac
@@ -420,9 +422,9 @@ inplace_target_setup () {
 
     sed -i -E "s@^[# ]+(%(wheel|sudo))@\1@" /etc/sudoers
 
-    groupadd -g 911 sudo
+    getent group sudo || groupadd -g 911 sudo
     useradd --btrfs-subvolume-home -c ${fullname:-NOT_PROVIDED} -U -G sudo,users -m ${username:-NOT_PROVIDED}
-    passwd ${username}
+    echo -n "${userpass:-none}" | passwd --stdin ${username:-NOT_PROVIDED}
 
     systemctl enable systemd-networkd
     systemctl enable systemd-resolved
@@ -446,7 +448,9 @@ do_setup () {
             E) use_encryption=yes ;;
             P) volume_occupy="${OPTARG}" ;;
             K) echo "${OPTARG}" > /tmp/cryptkey ;
-                crypt_passphrase="/tmp/cryptkey" ;;
+                crypt_passphrase="/tmp/cryptkey" ;
+                passdown_args+=("-P '${OPTARG}'")
+                ;;
         esac
     done
 
