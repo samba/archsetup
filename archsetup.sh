@@ -474,8 +474,14 @@ do_setup () {
 
 cleanup () {
     umount /mnt/.snapshot /mnt/var/log /mnt/var/cache /mnt/home /mnt/boot /mnt/var /mnt
+    swapoff -a
+    dd if=/dev/urandom of=/dev/system/root bs=20M count=1
+    dd if=/dev/urandom of=/dev/system/swap bs=20M count=1
     vgchange -a n system
-    pvs -o pv_name | tr -d '[:space:]' | grep -v '^PV$' | xargs -I{} pvremove -ff {}
+    pvs -o pv_name | grep -v '^PV$' | tr -d '[:space:]' | while read pv; do
+        pvremove -ff ${pv}
+        dd if=/dev/urandom of=${pv} bs=4M count=1
+    done
 }
 
 case ${1} in
