@@ -417,7 +417,7 @@ inplace_target_setup () {
     mkinitcpio -P # This must happen AFTER all modifications to /etc/crypttab.initramfs
     test 0 -eq "${actually_secure}" && sbctl sign-all
 
-    bootctl install
+    bootctl install --esp-path=/boot --variables=yes
     sed -i -E 's%^#(timeout|console-mode)%\1%' /boot/loader/loader.conf
 
     sed -i -E "s@^[# ]+(%(wheel|sudo))@\1@" /etc/sudoers
@@ -462,6 +462,11 @@ do_setup () {
 
         # Sets up the partitions & filesystems, mounting at /mnt
         do_disk_setup ${BLOCKDEVICES} ${use_encryption} ${crypt_passphrase} ${volume_occupy:-50%FREE}
+    else
+        if ! mountpoint /mnt ; then
+            echo "Failing on purpose.  /mnt must be a mounted filesystem."
+            return 3
+        fi
     fi
 
     target_files /mnt
